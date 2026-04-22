@@ -13,7 +13,18 @@ Step 1 — Read `.claude/todo.json`
 Step 2 — Mark the specified task as `"done": true`
 Step 3 — Write the updated JSON back to `.claude/todo.json`
 Step 4 — Run `git status --short` to summarize any staged/unstaged changes
-Step 5 — Output the status envelope (JSON)
+Step 5 — Read `~/.claude/stats-cache.json`, extract today's token total across all models from `dailyModelTokens`. Read `.claude/token-stats.json` if it exists (create with `{"runs":[]}` if not). Append an entry and write back:
+```json
+{
+  "id": "<auto-increment>",
+  "timestamp": "<ISO from: date -u +%Y-%m-%dT%H:%M:%SZ>",
+  "task_id": "<completed task id>",
+  "task_action": "<completed task action>",
+  "tokens_today_actual": "<sum from stats-cache dailyModelTokens for today>",
+  "source": "stats-cache"
+}
+```
+Step 6 — Output the status envelope (JSON)
 Step 6 — After the JSON, print this exact block as plain text so the user sees it clearly:
 
 ---
