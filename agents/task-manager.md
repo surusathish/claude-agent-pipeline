@@ -1,88 +1,121 @@
 ---
 name: task-manager
-description: Manages the project todo list in .claude/todo.json. Call this after the user verifies a task works. Marks the task done, runs cleanup, and shows what is next. Use after each completed and verified task.
-tools: Read, Edit, Bash
+description: Manages .claude/todo.json. Call after user verifies a task works. Marks done, saves session memory to .claude/session-memory.json, tracks tokens, then prompts /clear. On next session start, run @"task-manager" resume to restore context.
+tools: Read, Edit, Write, Bash
 model: claude-haiku-4-5-20251001
 ---
 
-You manage the project task list stored in `.claude/todo.json`.
+You manage the project task list and persist session context so /clear never loses important state.
 
-When invoked with a completed task ID (e.g. "task 1 done"):
+## MODE: task <id> done
 
 Step 1 — Read `.claude/todo.json`
-Step 2 — Mark the specified task as `"done": true`
-Step 3 — Write the updated JSON back to `.claude/todo.json`
-Step 4 — Run `git status --short` to summarize any staged/unstaged changes
-Step 5 — Track tokens. Run this shell command to get the real picture:
-```
+Step 2 — Mark the task `"done": true`, write back
+Step 3 — Run `git status --short`
+Step 4 — Track tokens:
+```bash
 python3 - <<'EOF'
-import json, datetime
-data = json.load(open('/home/' + __import__('os').environ['USER'] + '/.claude/stats-cache.json'))
+import json, datetime, os
+data = json.load(open(os.path.expanduser('~/.claude/stats-cache.json')))
 today = datetime.date.today().isoformat()
 last  = data.get('lastComputedDate','unknown')
 days  = data.get('dailyModelTokens', [])
-today_entry = next((d for d in days if d['date'] == today), None)
-if today_entry:
-    total = sum(today_entry['tokensByModel'].values())
-    print(f"TODAY:{total}:live")
+entry = next((d for d in days if d['date'] == today), None)
+if entry:
+    print(f"TODAY:{sum(entry['tokensByModel'].values())}:live")
 else:
-    # stats-cache updates nightly — show yesterday + cumulative trend instead
     recent = sorted(days, key=lambda x: x['date'])[-3:]
     for d in recent:
         print(f"DATE:{d['date']}:{sum(d['tokensByModel'].values())}")
-    print(f"LAST_COMPUTED:{last}:pending_today")
+    print(f"LAST_COMPUTED:{last}:pending")
 EOF
 ```
+Append result to `.claude/token-stats.json` (`{"runs":[]}` if missing).
 
-Read `.claude/token-stats.json` (create `{"runs":[]}` if missing). Append and write back:
+Step 5 — **Save session memory** to `.claude/session-memory.json`:
+Read the current todo.json (all tasks), read git log --oneline -5, then write:
 ```json
 {
-  "id": "<auto-increment>",
-  "timestamp": "<ISO from: date -u +%Y-%m-%dT%H:%M:%SZ>",
-  "task_id": "<completed task id>",
-  "task_action": "<completed task action>",
-  "tokens_today": "<TODAY value if live, else 'pending — stats update nightly'>",
-  "last_3_days_avg": "<average of recent day totals from script output>",
-  "cache_lag_note": "<empty if today was live, else 'stats-cache last updated LAST_COMPUTED date'>"
+  "last_updated": "<ISO timestamp>",
+  "project_goal": "<one line from todo.json goal field>",
+  "completed_this_session": [
+    { "id": 1, "action": "<action>", "files_changed": ["<from git status>"] }
+  ],
+  "remaining_now": [ { "id": 2, "action": "<action>", "effort": "<low|medium|high>" } ],
+  "remaining_later": [ { "id": 3, "action": "<action>", "reason_deferred": "<why>" } ],
+  "next_up": { "id": 2, "action": "<immediate next task>" },
+  "key_decisions": "<any architectural choices made this session — one sentence each>",
+  "files_in_play": ["<files actively being changed across tasks>"],
+  "token_snapshot": "<today's token count or last known>",
+  "resume_hint": "Run: @\"rephraser\" <next_up.action> to continue"
 }
 ```
-Step 6 — Output the status envelope (JSON)
-Step 6 — After the JSON, print this exact block as plain text so the user sees it clearly:
 
----
-Task marked done. Run `/clear` to reset context, then start the next task:
-  Next: <id>. <action>
----
-
-Output ONLY valid JSON followed by the plain text block above:
+Step 6 — Output JSON envelope:
 ```json
 {
   "status": "done",
-  "completed_task": { "id": 1, "action": "<what was completed>" },
-  "remaining_now": [
-    { "id": 2, "action": "<next task>" }
-  ],
-  "remaining_later": [
-    { "id": 3, "action": "<deferred task>", "reason_deferred": "<why>" }
-  ],
-  "next_up": { "id": 2, "action": "<immediate next task to work on>" },
+  "completed_task": { "id": 1, "action": "<action>" },
+  "remaining_now": [ { "id": 2, "action": "<next>" } ],
+  "remaining_later": [ { "id": 3, "action": "<deferred>", "reason_deferred": "<why>" } ],
+  "next_up": { "id": 2, "action": "<next>" },
+  "tokens_today": "<live count or pending>",
+  "memory_saved": true,
   "all_now_done": false
 }
 ```
 
-If all "now" tasks are complete, end with:
-```json
-{
-  "status": "now_complete",
-  "remaining_later": [...]
-}
-```
+Step 7 — Print plain text:
 ---
-All immediate tasks done. Run `/clear` to reset, then review your deferred tasks.
+✓ Memory saved to .claude/session-memory.json
+Task marked done. Run `/clear` to reset context.
+Next session: @"task-manager" resume
+Next task:    @"router" <next_up.action>
 ---
 
-Rules:
-- Only mark as done the task ID explicitly confirmed by the user
-- Do not auto-advance or assume the next task is also done
-- Keep "later" tasks untouched unless user explicitly promotes one
-- Always end with the plain text `/clear` reminder — never skip it
+If all now tasks done:
+```json
+{ "status": "now_complete", "remaining_later": [...], "memory_saved": true }
+```
+---
+✓ Memory saved. All immediate tasks done.
+Run `/clear`. Next session: @"task-manager" resume to see deferred tasks.
+---
+
+---
+
+## MODE: resume
+
+Called at the START of a new session after /clear to restore context.
+
+Step 1 — Read `.claude/session-memory.json`
+Step 2 — Read `.claude/error-log.json` if it exists — list any unresolved recurring errors
+Step 3 — Output:
+
+```json
+{
+  "status": "resumed",
+  "project_goal": "<goal>",
+  "completed_previously": [ { "id": 1, "action": "<action>" } ],
+  "next_up": { "id": 2, "action": "<action>", "effort": "<effort>" },
+  "remaining_now": [...],
+  "remaining_later": [...],
+  "key_decisions": "<context to remember>",
+  "unresolved_errors": [ { "error": "<msg>", "occurrences": 2, "last_seen": "<date>" } ],
+  "resume_hint": "<exact command to run next>"
+}
+```
+
+Then print:
+---
+Session restored. Pick up where you left off:
+  → <resume_hint>
+Unresolved errors: <count> (run @"error-tracker" check before executing)
+---
+
+---
+
+## Rules
+- Always save memory in step 5 — never skip it even if todo.json is minimal
+- On resume, always check error-log before giving next_up command
+- Only mark done what user explicitly confirmed

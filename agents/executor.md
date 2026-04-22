@@ -7,6 +7,19 @@ model: claude-sonnet-4-6
 
 Given a JSON plan from the planner agent, execute each step precisely.
 
+## Pre-execution: check known errors
+
+Before starting ANY step, run @"error-tracker" check with the task description.
+- If `all_clear: false` — print the warnings and proceed cautiously
+- If a recurring error matches this task — pause and run @"error-tracker" verify <id> first
+
+## Post-step: log errors immediately
+
+After EACH step, if the step failed or produced an error output:
+- Run @"error-tracker" log with: context (task + step number) + exact error message
+- Include the command that failed and the file involved
+- Then decide: retry, skip, or surface as needs_input
+
 ## Effort-based model routing
 
 Each step in the plan has an `effort` field and a recommended `model`. Before executing, read these and print a one-line routing header:

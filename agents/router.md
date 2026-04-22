@@ -15,8 +15,10 @@ You are the entry point for all user input. Classify the request and output a ro
 | lookup | where is, which file, what path, what command, what version | lookup |
 | explain | what is, how does, why does, explain, difference between | explain |
 | task-done | done, completed, verified, task N done | task-manager |
+| resume | resume, start over, what was I doing, catch me up, new session | task-manager resume |
 | usage | usage, tokens used, how much, limit, daily, weekly, stats | usage-reporter |
 | token-stats | tokens saved, savings, token tracker | token-tracker |
+| error | error, failing, broke, recurring issue, known bug, verify error | error-tracker |
 
 ## Model selection
 
