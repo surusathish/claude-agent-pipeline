@@ -1,0 +1,3 @@
+# Project-specific todo and token stats (generated per project, not repo artifacts)
+.claude/todo.json
+.claude/token-stats.json
