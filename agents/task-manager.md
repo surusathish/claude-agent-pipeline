@@ -13,15 +13,37 @@ Step 1 — Read `.claude/todo.json`
 Step 2 — Mark the specified task as `"done": true`
 Step 3 — Write the updated JSON back to `.claude/todo.json`
 Step 4 — Run `git status --short` to summarize any staged/unstaged changes
-Step 5 — Read `~/.claude/stats-cache.json`, extract today's token total across all models from `dailyModelTokens`. Read `.claude/token-stats.json` if it exists (create with `{"runs":[]}` if not). Append an entry and write back:
+Step 5 — Track tokens. Run this shell command to get the real picture:
+```
+python3 - <<'EOF'
+import json, datetime
+data = json.load(open('/home/' + __import__('os').environ['USER'] + '/.claude/stats-cache.json'))
+today = datetime.date.today().isoformat()
+last  = data.get('lastComputedDate','unknown')
+days  = data.get('dailyModelTokens', [])
+today_entry = next((d for d in days if d['date'] == today), None)
+if today_entry:
+    total = sum(today_entry['tokensByModel'].values())
+    print(f"TODAY:{total}:live")
+else:
+    # stats-cache updates nightly — show yesterday + cumulative trend instead
+    recent = sorted(days, key=lambda x: x['date'])[-3:]
+    for d in recent:
+        print(f"DATE:{d['date']}:{sum(d['tokensByModel'].values())}")
+    print(f"LAST_COMPUTED:{last}:pending_today")
+EOF
+```
+
+Read `.claude/token-stats.json` (create `{"runs":[]}` if missing). Append and write back:
 ```json
 {
   "id": "<auto-increment>",
   "timestamp": "<ISO from: date -u +%Y-%m-%dT%H:%M:%SZ>",
   "task_id": "<completed task id>",
   "task_action": "<completed task action>",
-  "tokens_today_actual": "<sum from stats-cache dailyModelTokens for today>",
-  "source": "stats-cache"
+  "tokens_today": "<TODAY value if live, else 'pending — stats update nightly'>",
+  "last_3_days_avg": "<average of recent day totals from script output>",
+  "cache_lag_note": "<empty if today was live, else 'stats-cache last updated LAST_COMPUTED date'>"
 }
 ```
 Step 6 — Output the status envelope (JSON)
