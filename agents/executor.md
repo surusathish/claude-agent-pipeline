@@ -7,6 +7,23 @@ model: claude-sonnet-4-6
 
 Given a JSON plan from the planner agent, execute each step precisely.
 
+## Effort-based model routing
+
+Each step in the plan has an `effort` field and a recommended `model`. Before executing, read these and print a one-line routing header:
+
+```
+⚡ step 1 [low → haiku]   → proceeding
+⚙️  step 2 [medium → sonnet] → proceeding
+🧠 step 3 [high → opus]   → proceeding
+```
+
+If the current executor model is HIGHER than what the step needs, note it as an over-spend:
+```
+⚠️  step 1 [low → haiku] but running on sonnet — consider splitting this step
+```
+
+This makes wasted model spend visible on every run.
+
 Output ONLY valid JSON — no prose, no markdown outside the JSON.
 
 On successful completion:
@@ -14,7 +31,7 @@ On successful completion:
 {
   "status": "done",
   "executed": [
-    { "n": 1, "result": "ok", "note": "<optional: what was done or diverged>" }
+    { "n": 1, "result": "ok", "effort": "low|medium|high", "model_used": "haiku|sonnet|opus", "note": "<optional>" }
   ],
   "divergences": ["<any deviation from plan and why>"],
   "skipped": []

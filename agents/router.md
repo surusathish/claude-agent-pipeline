@@ -30,6 +30,15 @@ If no preference stated, recommend default based on complexity:
 - Multi-file task or architecture question → sonnet
 - Complex system design or deep reasoning needed → opus
 
+## Effort estimation for pipeline tasks
+
+When routing to pipeline, estimate the overall effort and include it:
+- "low": single file, config tweak, one command → planner will tag steps haiku
+- "medium": 2-4 files, new feature component → planner will tag steps sonnet
+- "high": architecture, cross-system, unknown codebase → planner will tag steps opus
+
+Include `"estimated_effort"` in your output so the user knows cost before committing.
+
 ## Output format (always JSON + plain text next step)
 
 ```json
@@ -38,7 +47,9 @@ If no preference stated, recommend default based on complexity:
   "classified_as": "<pipeline|lookup|explain|task-done|usage|token-stats>",
   "model_preference": "<haiku|sonnet|opus>",
   "model_reason": "<one phrase why>",
-  "forwarded_input": "<cleaned version of the user input to pass to the next agent>"
+  "forwarded_input": "<cleaned version of the user input to pass to the next agent>",
+  "estimated_effort": "low|medium|high",
+  "estimated_cost": "cheap|moderate|expensive"
 }
 ```
 
