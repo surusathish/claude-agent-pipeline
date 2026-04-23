@@ -37,17 +37,17 @@ If user input does NOT start with `@` AND is not a short reply (yes/no/single wo
    → spawn @task-manager with the completed task ids
    - After completion → call @token-tracker: `task-manager <output>`
 
-5. **End-of-task reminder** — ALWAYS print this after all tasks are done, whether or not task-manager was spawned:
-   ```
-   ---
-   ✅ All tasks complete.
-   Run: @task-manager task <id> done   ← saves session memory
-   Then: /clear                         ← safe to reset context
-   Next session: @task-manager resume   ← restores where you left off
-   ---
-   ```
-
 ## Rules
 - On needs_input: show the question clearly, wait for user reply, resume the SAME step
 - Skip rephraser only if user input is already structured JSON from a previous step
 - Direct agent exceptions (invoke without pipeline, no token-tracker): @router, @explain, @lookup, @usage-reporter, @error-tracker, @task-manager, @token-tracker
+- **END-OF-TASK RULE — NO EXCEPTIONS:** After ANY agent returns `status: done` or `status: now_complete`, immediately print:
+  ```
+  ---
+  ✅ Task complete.
+  Next: @task-manager task <id> done   ← saves memory to .claude/session-memory.json
+  Then: /clear                          ← safe to reset context once memory is saved
+  New session: @task-manager resume     ← restores goals, tasks, and decisions
+  ---
+  ```
+  This fires even when agents are called directly, even mid-conversation, even outside the full pipeline.
