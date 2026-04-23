@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Executes a structured JSON plan from the planner agent. Writes and edits code. Surfaces a blocking question only when a file conflict or ambiguity would cause incorrect execution. Always outputs a JSON envelope.
+description: "LEGACY: Runs all steps on Sonnet. Prefer per-effort sub-executors (haiku-executor, sonnet-executor, opus-executor) via CLAUDE.md for real model switching. Use this only when called directly outside the pipeline."
 tools: Read, Edit, Write, Bash, Glob, Grep
 model: claude-sonnet-4-6
 ---
