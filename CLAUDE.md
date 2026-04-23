@@ -25,13 +25,19 @@ If user input does NOT start with `@` AND is not a short reply (yes/no/single wo
 3. **Per-task execution** (replaces single @executor call)
    For EACH task in planner's `now` array, in order:
    a. Print header: `[ task <id> → <effort> → <model> ]`
-   b. Dispatch based on effort field:
+   b. Run @"error-tracker" check with the task action.
+      - If `all_clear: true` → proceed to step c.
+      - If `all_clear: false` AND any error has `recurring: true` → run @"error-tracker" verify <id1> <id2> ... (all recurring ids at once).
+        - If any `still_present: true` → surface the error recommendation. STOP. User must confirm fix before resuming.
+        - If all resolved → proceed to step c.
+      - If `all_clear: false` but no recurring errors → print warnings, proceed to step c.
+   c. Dispatch based on effort field:
       - `effort: low`    → spawn @haiku-executor  with `{ task, context }`
       - `effort: medium` → spawn @sonnet-executor with `{ task, context }`
       - `effort: high`   → spawn @opus-executor   with `{ task, context }`
-   c. After completion → call @token-tracker: `<agent-name> <output>`
-   d. `needs_input` → surface question + error recommendation if error-related, STOP. User must confirm fix before resuming same sub-executor.
-   e. Continue to next task only after current task returns `status: done`
+   d. After completion → call @token-tracker: `<agent-name> <output>`
+   e. `needs_input` → surface question, STOP. User must confirm before resuming same sub-executor.
+   f. Continue to next task only after current task returns `status: done`
 
 4. **Task manager**
    → spawn @task-manager with the completed task ids
@@ -41,7 +47,7 @@ If user input does NOT start with `@` AND is not a short reply (yes/no/single wo
 - On needs_input: show the question clearly, wait for user reply, resume the SAME step
 - Skip rephraser only if user input is already structured JSON from a previous step
 - Direct agent exceptions (invoke without pipeline, no token-tracker): @router, @explain, @lookup, @usage-reporter, @error-tracker, @task-manager, @token-tracker
-- **END-OF-TASK RULE — NO EXCEPTIONS:** After ANY agent returns `status: done` or `status: now_complete`, immediately print:
+- **END-OF-TASK RULE:** After @task-manager completes, OR after a sub-executor (@haiku-executor, @sonnet-executor, @opus-executor) is called directly outside the pipeline and returns `status: done`, immediately print:
   ```
   ---
   ✅ Task complete.
@@ -50,4 +56,4 @@ If user input does NOT start with `@` AND is not a short reply (yes/no/single wo
   New session: @task-manager resume     ← restores goals, tasks, and decisions
   ---
   ```
-  This fires even when agents are called directly, even mid-conversation, even outside the full pipeline.
+  Does NOT fire for @router, @explain, @lookup, @usage-reporter, @error-tracker, @task-manager, @token-tracker.

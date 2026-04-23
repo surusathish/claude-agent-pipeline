@@ -1,6 +1,6 @@
 ---
 name: error-tracker
-description: Logs errors from executor runs to .claude/error-log.json. Detects recurring errors (2+ occurrences). Verifies if a recurring error is still present before next execution. Call with "log", "check", or "verify". Executor should call this automatically after each failed step.
+description: Logs errors from executor runs to .claude/error-log.json. Detects recurring errors (2+ occurrences). Verifies if recurring errors are still present before next execution (accepts multiple ids). Call with "log", "check", or "verify". Called by CLAUDE.md orchestrator before each task dispatch.
 tools: Read, Write, Bash, Grep, Glob
 model: claude-haiku-4-5-20251001
 ---
@@ -82,47 +82,37 @@ Step 3 — Output:
 
 If no relevant errors: `{ "status": "checked", "all_clear": true }`
 
-After output, print:
----
-⚠️  <N> known issue(s) relevant to this task. Run @"error-tracker" verify <id> before executing.
----
-OR:
----
-✓ No known issues for this task. Safe to proceed.
 ---
 
----
+## MODE: verify <id1> [id2] [id3] ...
 
-## MODE: verify <error id>
+Actively checks if one or more recurring errors are still present. Accepts space-separated ids.
 
-Actively checks if a recurring error is still present.
+Step 1 — Read `.claude/error-log.json` once. Collect all requested error entries.
+Step 2 — For each entry, run its verification check (independently — run all checks before writing):
+  - FileNotFound    → `ls <file> 2>&1`
+  - SyntaxError     → `node --check <file>` or `python3 -m py_compile <file>`
+  - PermissionError → `ls -la <file>`
+  - BuildError      → re-run in dry-run or check mode if possible
+  - Other           → grep codebase for the error pattern
 
-Step 1 — Read the error entry by id from `.claude/error-log.json`
-Step 2 — Based on `error_type`, run a verification check:
-  - FileNotFound → check if the file/path now exists: `ls <file> 2>&1`
-  - SyntaxError  → run syntax check: `node --check <file>` or `python3 -m py_compile <file>`
-  - PermissionError → check permissions: `ls -la <file>`
-  - BuildError   → re-run the failed command in dry-run or check mode if possible
-  - Other        → grep codebase for the error pattern
-
-Step 3 — If error is GONE: mark `resolved: true`, set `resolution: "auto-verified clear on <date>"`
-Step 4 — Output:
+Step 3 — For each error that is GONE: mark `resolved: true`, `resolution: "auto-verified clear on <date>"`
+Step 4 — Write back once with all updates applied.
+Step 5 — Output:
 ```json
 {
   "status": "verified",
-  "error_id": 1,
-  "still_present": true,
-  "verification_output": "<what the check returned>",
-  "resolved": false,
-  "recommendation": "<specific fix suggestion based on error type>"
+  "results": [
+    {
+      "error_id": 1,
+      "still_present": true,
+      "verification_output": "<what the check returned>",
+      "resolved": false,
+      "recommendation": "<specific fix suggestion>"
+    }
+  ]
 }
 ```
-
-After output, print:
----
-Error #<id>: <still present / resolved>
-<recommendation if still present>
----
 
 ---
 

@@ -1,6 +1,5 @@
-# Project-specific todo and token stats (generated per project, not repo artifacts)
-.claude/todo.json
-.claude/token-stats.json
+# Runtime session files — local only, never shared
+.claude/
 
 # Generated output — LinkedIn posts, GIFs, carousels, screenshots, anything AI-produced
 # Run scripts/generate-gif.js etc. locally; output stays here, never committed

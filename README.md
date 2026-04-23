@@ -168,7 +168,17 @@ For specific tasks that bypass the pipeline:
 bash scripts/install.sh
 ```
 
-Copies all agents to `~/.claude/agents/` so they are available in every project.
+Copies all agents to `~/.claude/agents/` — `@router` and every agent become available in all your projects immediately.
+
+The installer then asks where to install `CLAUDE.md`:
+
+| Choice | What happens |
+|--------|-------------|
+| **Global** (`~/.claude/CLAUDE.md`) | Pipeline auto-runs in **every** Claude Code session on your machine |
+| **This project only** (`./CLAUDE.md`) | Pipeline auto-runs only in the current project directory |
+| **Skip** | Invoke manually: `@router <your task>` — agents still work, just not automatic |
+
+**Recommended: Global.** You never need to `cd` into a specific directory — the pipeline follows you into any project.
 
 ## Scheduled Usage Reports
 
@@ -215,15 +225,33 @@ JSON communication between agents saves ~60% tokens vs equivalent markdown prose
 
 Shows cumulative savings across all sessions.
 
+## Where it works
+
+This pipeline requires **Claude Code** — it uses Claude Code-exclusive infrastructure:
+
+| Interface | Supported |
+|-----------|-----------|
+| Claude Code CLI (`claude` in terminal) | ✅ Yes |
+| Claude Code desktop app (Mac / Windows) | ✅ Yes |
+| VS Code / JetBrains extension (Claude Code) | ✅ Yes |
+| claude.ai web | ❌ No — no CLAUDE.md, no @agents, no file tools |
+| Claude API directly | ❌ No — no agent infrastructure |
+| Other LLMs (GPT-4, Gemini, etc.) | ❌ Not yet |
+
 ## Compatibility
 
-| Layer | Portable to other AI vendors? |
-|-------|-------------------------------|
-| JSON envelope protocol | Yes — pure prompt pattern |
-| System prompt instructions | Yes — copy into any LLM |
-| `.md` frontmatter + tool names | No — Claude Code specific |
+The pipeline has two layers with different portability:
 
-See `agents/` for each agent's system prompt. See `prompts/` for vendor-neutral versions.
+| Layer | Portable? | Notes |
+|-------|-----------|-------|
+| JSON envelope protocol | ✅ Yes | Pure prompt pattern — works with any LLM |
+| Agent system prompts | ✅ Yes | Copy `agents/*.md` body into any LLM |
+| Orchestration infrastructure | ❌ No | CLAUDE.md, @agent syntax, tool access are Claude Code-specific |
+| File tools (Read, Edit, Bash, Glob) | ❌ No | Claude Code specific |
+
+**What "portable" means in practice:** The JSON communication format and agent logic can be ported to other platforms, but you'd need to rebuild the orchestration layer (equivalent of CLAUDE.md auto-loading, @agent discovery, and tool access) for that platform. See `prompts/` for vendor-neutral versions of each agent's system prompt.
+
+See `agents/` for each agent's system prompt.
 
 ## Status
 
