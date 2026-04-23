@@ -30,7 +30,7 @@ If user input does NOT start with `@` AND is not a short reply (yes/no/single wo
       - `effort: medium` → spawn @sonnet-executor with `{ task, context }`
       - `effort: high`   → spawn @opus-executor   with `{ task, context }`
    c. After completion → call @token-tracker: `<agent-name> <output>`
-   d. `needs_input` → surface question, STOP. Resume same sub-executor when answered.
+   d. `needs_input` → surface question + error recommendation if error-related, STOP. User must confirm fix before resuming same sub-executor.
    e. Continue to next task only after current task returns `status: done`
 
 4. **Task manager**

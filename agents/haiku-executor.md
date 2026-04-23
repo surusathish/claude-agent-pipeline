@@ -18,7 +18,12 @@ Execute ONE low-effort task from the plan. Read files before editing. Never assu
 
 ## Execution
 
-Step 1 — Run @"error-tracker" check with the task action. If `all_clear: false`, print warnings and proceed cautiously.
+Step 1 — Run @"error-tracker" check with the task action.
+- If `all_clear: true` → proceed to step 2.
+- If `all_clear: false` AND any error has `recurring: true` → DO NOT proceed. Run @"error-tracker" verify <id> for each recurring error.
+  - If `still_present: true` → return needs_input with the error recommendation. Do not execute the task.
+  - If `still_present: false` (resolved) → proceed to step 2.
+- If `all_clear: false` but no recurring errors → print warnings, proceed to step 2.
 
 Step 2 — Execute the task precisely. Read the target file first, then edit.
 
