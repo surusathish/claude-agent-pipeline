@@ -23,17 +23,29 @@ If user input does NOT start with `@` AND is not a short reply (yes/no/single wo
 
 ## @router Entry Point
 
-When input starts with `@router <message>`:
-1. Spawn @router (model: haiku) with `<message>` as input
-2. Parse routing JSON → get `route`, `effort`, `model`, `input`
-3. Branch:
-   - `route: direct`    → execute the command/action inline immediately, no agents spawned, STOP
-   - `route: rephraser` → start full pipeline at Step 1 with `input` as raw input
-   - `route: explain`   → spawn @explain (haiku), print result, STOP
-   - `route: lookup`    → spawn @lookup (haiku), print result, STOP
-   - `route: task-manager` → handle as @task-manager call, STOP
-   - `route: usage-reporter` → spawn @usage-reporter (haiku), print result, STOP
-   - `route: error-tracker` → spawn @error-tracker (haiku), print result, STOP
+When input starts with `@router <message>`, classify inline using this table — NO agent spawn for routing:
+
+| Keywords in message | Route |
+|---|---|
+| run, execute, start, restart, stop, open, show, list, print, display, check if, verify, status, git, commit, push, pull, node, python, npm, bash | direct |
+| add, build, fix, create, implement, set up, refactor, update, write, migrate | rephraser |
+| where is, which file, what path, what version, find | lookup |
+| what is, how does, explain, difference between, why, tell me | explain |
+| done, completed, verified, task N done | task-manager |
+| resume, catch me up, new session | task-manager |
+| usage, tokens used, daily, weekly, limit | usage-reporter |
+| error, failing, recurring issue, verify error | error-tracker |
+
+Then branch:
+- `direct`       → execute inline immediately, no agents spawned, STOP
+- `rephraser`    → start full pipeline at Step 1
+- `explain`      → spawn @explain (haiku), print result, STOP
+- `lookup`       → spawn @lookup (haiku), print result, STOP
+- `task-manager` → handle inline (read session-memory.json), STOP
+- `usage-reporter` → spawn @usage-reporter (haiku), print result, STOP
+- `error-tracker`  → spawn @error-tracker (haiku), print result, STOP
+
+Only spawn @router agent if input is genuinely ambiguous (matches multiple routes or no route).
 
 ## Pipeline
 
