@@ -37,6 +37,16 @@ If user input does NOT start with `@` AND is not a short reply (yes/no/single wo
    → spawn @task-manager with the completed task ids
    - After completion → call @token-tracker: `task-manager <output>`
 
+5. **End-of-task reminder** — ALWAYS print this after all tasks are done, whether or not task-manager was spawned:
+   ```
+   ---
+   ✅ All tasks complete.
+   Run: @task-manager task <id> done   ← saves session memory
+   Then: /clear                         ← safe to reset context
+   Next session: @task-manager resume   ← restores where you left off
+   ---
+   ```
+
 ## Rules
 - On needs_input: show the question clearly, wait for user reply, resume the SAME step
 - Skip rephraser only if user input is already structured JSON from a previous step
