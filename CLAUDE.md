@@ -117,3 +117,37 @@ Does NOT fire for: @router, @explain, @lookup, @usage-reporter, @error-tracker, 
 - Skip rephraser only if input is already structured JSON from a previous pipeline step
 - NEVER skip the Agent tool call — inline responses are forbidden for pipeline steps
 - Caveman always runs before rephraser — never bypass it
+
+## HARD RULE — No Inline Implementation
+If the route is `rephraser` (keywords: add, build, fix, create, implement, set up, refactor, update, write, migrate):
+- You MUST run the full pipeline: caveman → rephraser → triage → executor
+- NEVER write, edit, or create files inline, even if you know exactly what to do
+- NEVER reason "I have full context so I'll skip the pipeline" — that is a bypass violation
+- The only exception: direct route (run/execute/git/bash commands) which are inline by design
+
+## Compact Monitor
+After EVERY executor completes, run this check inline (no agent spawn):
+
+```bash
+python3 - <<'EOF'
+import json, os
+cfg_path = os.path.expanduser('~/.claude/pipeline-config.json')
+ctr_path = os.path.expanduser('~/.claude/session-task-count.json')
+if not os.path.exists(cfg_path):
+    exit()
+cfg = json.load(open(cfg_path))
+ctr = json.load(open(ctr_path)) if os.path.exists(ctr_path) else {"count": 0}
+ctr["count"] += 1
+json.dump(ctr, open(ctr_path, "w"))
+threshold = cfg.get("compact_threshold", 5)
+mode = cfg.get("compact_mode", "inform")
+if ctr["count"] >= threshold:
+    ctr["count"] = 0
+    json.dump(ctr, open(ctr_path, "w"))
+    print(f"COMPACT_ALERT:{mode}")
+EOF
+```
+
+- Output `COMPACT_ALERT:inform` → print: `⚠️ Context is getting large. Run /compact to compress before continuing.`
+- Output `COMPACT_ALERT:auto` → print: `⚠️ Auto-compact threshold reached. Running /compact now...` then execute `/compact` as a bash command via `claude --dangerously-skip-permissions -p /compact` if available, otherwise fall back to inform message.
+- No output → continue silently.
