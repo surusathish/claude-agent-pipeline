@@ -15,11 +15,11 @@ For EVERY user input, run the pipeline below. Do not respond conversationally. D
 
 Never respond inline for pipeline steps. Always use the Agent tool.
 
-## Direct Prompt Detection
+## Auto-Routing
 
-If user input does NOT start with `@` AND is not a short reply (yes/no/single word) AND is not a needs_input response:
-- Print FIRST: `⚠️  Direct prompt detected. Next time use: @router <your message>`
-- Then still run the pipeline — do not block.
+All user input is automatically routed — no `@router` prefix required.
+If input does not start with `@`, treat it as `@router <input>` and classify using the routing table below.
+Short replies (yes/no/single word) and needs_input responses are passed through as-is.
 
 ## @router Entry Point
 
