@@ -25,7 +25,13 @@ Step 1 — Run @"error-tracker" check with the task action.
   - If `still_present: false` (resolved) → proceed to step 2.
 - If `all_clear: false` but no recurring errors → print warnings, proceed to step 2.
 
-Step 2 — Execute the task precisely. For multi-file changes, read all relevant files first, then edit in sequence.
+Step 2 — Locate files via graph before reading.
+If `context.project_path` is set OR task involves finding/modifying symbols:
+  → Spawn @graph-reader with `{"project_path": "<path>", "query": "where is <target> defined|called|imported"}`.
+  → For multi-file changes, run one @graph-reader query per symbol needed — do not read files blindly.
+  → Use returned hits to read only exact file+line ranges.
+  → Skip @graph-reader only if all file paths are fully explicit in the task.
+Then edit in sequence.
 
 Step 3 — If a step fails, run @"error-tracker" log with: context (task id + action) + exact error message + command + file.
 

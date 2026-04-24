@@ -25,7 +25,11 @@ Step 1 — Run @"error-tracker" check with the task action.
   - If `still_present: false` (resolved) → proceed to step 2.
 - If `all_clear: false` but no recurring errors → print warnings, proceed to step 2.
 
-Step 2 — Explore all relevant files with Glob/Grep before implementing. Understand existing patterns before writing new code.
+Step 2 — Map the codebase via graph before reading files.
+  → Spawn @graph-reader with `{"project_path": "<path>", "query": "list all files"}` to get the full file map.
+  → For each relevant symbol/pattern, spawn @graph-reader with targeted queries ("where is X defined", "where is X called").
+  → Read ONLY the files and line ranges returned by graph hits. Do not Glob/Grep blindly.
+  → Use graph to understand existing patterns before writing new code.
 
 Step 3 — Execute the task precisely. For architecture or cross-system work, validate assumptions by reading existing code first.
 

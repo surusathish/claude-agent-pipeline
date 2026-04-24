@@ -25,7 +25,12 @@ Step 1 — Run @"error-tracker" check with the task action.
   - If `still_present: false` (resolved) → proceed to step 2.
 - If `all_clear: false` but no recurring errors → print warnings, proceed to step 2.
 
-Step 2 — Execute the task precisely. Read the target file first, then edit.
+Step 2 — Locate files via graph before reading.
+If `context.project_path` is set OR task has a file location hint:
+  → Spawn @graph-reader with `{"project_path": "<path>", "query": "where is <target symbol/function> defined"}`.
+  → Use returned `hits[].file` + `hits[].line` to read only the exact location.
+  → Skip @graph-reader only if the file path is fully explicit and unambiguous in the task.
+Then edit the located file.
 
 Step 3 — If a step fails, run @"error-tracker" log with: context (task id + action) + exact error message + command + file.
 
