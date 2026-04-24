@@ -1,5 +1,10 @@
 # Runtime session files — local only, never shared
-.claude/
+.claude/session-memory.json
+.claude/todo.json
+.claude/error-log.json
+.claude/token-stats.json
+
+# Agent source files ARE tracked — see .claude/agents/
 
 # Generated output — LinkedIn posts, GIFs, carousels, screenshots, anything AI-produced
 # Run scripts/generate-gif.js etc. locally; output stays here, never committed

@@ -5,7 +5,7 @@ For EVERY user input, run the pipeline below. Do not respond conversationally. D
 ## How to Spawn Agents (Agent Tool Protocol)
 
 "Spawn @agentname" means — DO THIS EVERY TIME, no exceptions:
-1. Read `/home/sathishkumar_b_s/.claude/agents/<agentname>.md` to get its instructions
+1. Read `~/.claude/agents/<agentname>.md` to get its instructions
 2. Call the Agent tool:
    - `subagent_type`: always `"general-purpose"`
    - `model`: map from the .md frontmatter — `claude-haiku-4-5-20251001` → `"haiku"`, `claude-sonnet-4-6` → `"sonnet"`, `claude-opus-4-7` → `"opus"`
@@ -37,62 +37,71 @@ When input starts with `@router <message>`, classify inline using this table —
 | error, failing, recurring issue, verify error | error-tracker |
 
 Then branch:
-- `direct`       → execute inline immediately, no agents spawned, STOP
-- `rephraser`    → start full pipeline at Step 1
-- `explain`      → spawn @explain (haiku), print result, STOP
-- `lookup`       → spawn @lookup (haiku), print result, STOP
-- `task-manager` → handle inline (read session-memory.json), STOP
-- `usage-reporter` → spawn @usage-reporter (haiku), print result, STOP
-- `error-tracker`  → spawn @error-tracker (haiku), print result, STOP
+- `direct`         → execute inline immediately, no agents spawned, STOP
+- `rephraser`      → start full pipeline at Step 1
+- `explain`        → **INLINE CHECK FIRST**: Can this be answered in 1-3 sentences from general knowledge, no file reads? YES → answer inline, STOP. NO → spawn @explain (haiku), STOP
+- `lookup`         → **INLINE CHECK FIRST**: Is the answer already in conversation context? YES → answer inline, STOP. NO → spawn @lookup (haiku), STOP
+- `task-manager`   → handle inline (read session-memory.json), STOP
+- `usage-reporter` → spawn @usage-reporter (haiku), STOP
+- `error-tracker`  → spawn @error-tracker (haiku), STOP
 
 Only spawn @router agent if input is genuinely ambiguous (matches multiple routes or no route).
 
 ## Pipeline
 
-### Step 1 — Rephraser `[ haiku ]`
-Spawn @rephraser (model: haiku) with raw user input.
+### Step 1 — Caveman + Rephraser `[ haiku ]`
+a. Spawn @caveman (model: haiku) with raw user input to compress it to terse form.
+b. Spawn @rephraser (model: haiku) with caveman output.
 - `status: needs_input` → surface the question clearly, STOP. Resume rephraser when user answers.
-- `status: ready` → spawn @token-tracker (model: haiku) with `rephraser <rephraser_output_json>`, then go to Step 2.
+- `status: ready` → assess complexity inline (see Step 1c), then go to Step 2 or fast-path.
+
+c. **Complexity triage** (inline, no agent):
+   - **SIMPLE** = effort is clearly `low` AND single file/function AND no mentioned errors/crashes → skip Steps 2 & 3b, go directly to Step 3c with effort=low
+   - **COMPLEX** = multi-file, architecture change, new feature, or effort=high → run full pipeline (Steps 2 → 3)
+   - **DEFAULT** = anything else → run full pipeline
 
 ### Step 2 — Planner `[ opus ]`
+Skip if triage = SIMPLE.
+
 Spawn @planner (model: opus) with the rephraser JSON output.
 - `status: needs_input` → surface the question clearly, STOP. Resume planner when user answers.
-- `status: ready` → spawn @token-tracker (model: haiku) with `planner <planner_output_json>`, then go to Step 3.
+- `status: ready` → go to Step 3.
 
 ### Step 3 — Per-task execution
-For EACH task in planner's `now` array, in order:
+For EACH task in planner's `now` array (or the single SIMPLE task), in order:
 
 a. Print: `[ task <id> → <effort> → <model> ]`
 
-b. Spawn @error-tracker (model: haiku) with `check <task_action>`.
+b. **Error-tracker check** — ONLY run if task mentions error/bug/failing/crash/broken OR error-log.json exists with relevant entries. Otherwise skip.
+   If run: Spawn @error-tracker (model: haiku) with `check <task_action>`.
    - `all_clear: true` → proceed to (c)
-   - `all_clear: false` AND any error has `recurring: true`:
-     → Spawn @error-tracker with `verify <id1> <id2> ...` (all recurring ids at once)
-     → If any `still_present: true` → surface recommendation, STOP. User must confirm before continuing.
-     → If all resolved → proceed to (c)
-   - `all_clear: false` but no recurring → print warnings, proceed to (c)
+   - `all_clear: false` AND recurring error → spawn @error-tracker `verify <ids>` → if still_present → surface, STOP
+   - `all_clear: false` but no recurring → print warning, proceed
 
 c. Dispatch by effort:
    - `effort: low`    → spawn @haiku-executor  (model: haiku)  with `{ task, context }`
    - `effort: medium` → spawn @sonnet-executor (model: sonnet) with `{ task, context }`
    - `effort: high`   → spawn @opus-executor   (model: opus)   with `{ task, context }`
 
-d. After executor returns → spawn @token-tracker (model: haiku) with `<executor-name> <output>`
+d. After executor returns `status: done` → spawn @caveman (model: haiku) with executor's plain-text output. Print caveman's compressed output to user instead of raw executor output.
 
-e. `status: needs_input` → surface question, STOP. User must confirm before resuming same executor.
+e. `status: needs_input` → surface question as-is (no caveman), STOP. User must confirm before resuming.
 
-f. Continue to next task only after current task returns `status: done`
+e. Continue to next task only after current returns `status: done`
 
 ### Step 4 — Task Manager
-Spawn @task-manager (model: haiku) with completed task ids.
-After completion → spawn @token-tracker (model: haiku) with `task-manager <output>`
+**Only run when user explicitly requests it** (`@task-manager task <id> done`).
+Do NOT auto-spawn after executor completes.
 
-## Direct Agent Exceptions (no pipeline, no token-tracker)
-@router, @explain, @lookup, @usage-reporter, @error-tracker, @task-manager, @token-tracker
-These are invoked directly — still use the Agent tool with correct model, but skip the rephraser/planner/executor chain.
+## Token-Tracker
+**Removed from mandatory pipeline.** Only spawn @token-tracker when user explicitly asks for token usage stats.
+
+## Direct Agent Exceptions (no pipeline)
+@router, @explain, @lookup, @usage-reporter, @error-tracker, @task-manager, @token-tracker, @caveman
+These are invoked directly — still use the Agent tool with correct model, but skip the full pipeline chain.
 
 ## END-OF-TASK RULE
-After @task-manager completes OR after an executor returns `status: done` (when called directly outside pipeline), print:
+After an executor returns `status: done`, print:
 ```
 ---
 ✅ Task complete.
@@ -107,3 +116,4 @@ Does NOT fire for: @router, @explain, @lookup, @usage-reporter, @error-tracker, 
 - On needs_input: show the question clearly, wait for user reply, resume the SAME step
 - Skip rephraser only if input is already structured JSON from a previous pipeline step
 - NEVER skip the Agent tool call — inline responses are forbidden for pipeline steps
+- Caveman always runs before rephraser — never bypass it
